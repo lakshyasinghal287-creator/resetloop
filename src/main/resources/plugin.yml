@@ -1,1 +1,9 @@
+name: ResetLoop
+main: com.example.resetloop.ResetLoop
+version: 1.0
+api-version: 1.21
+commands:
+  resetnow:
+    description: Force reset the world
+    usage: /resetnow
 
