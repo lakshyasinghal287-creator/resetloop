@@ -65,12 +65,12 @@ public class ResetLoop extends JavaPlugin {
         Bukkit.createWorld(wc);
 
         // Reset advancements
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            Bukkit.getAdvancementIterator().forEachRemaining(adv ->
-                    p.getAdvancementProgress(adv).getAwardedCriteria()
-                            .forEach(c -> p.getAdvancementProgress(adv).revokeCriteria(c))
-            );
-        }
+    for (Player p : Bukkit.getOnlinePlayers()) {
+    Bukkit.advancementIterator().forEachRemaining(adv ->
+            p.getAdvancementProgress(adv).getAwardedCriteria()
+                    .forEach(c -> p.getAdvancementProgress(adv).revokeCriteria(c))
+    );
+}
 
         Bukkit.broadcastMessage("§aWorld has been reset!");
     }
