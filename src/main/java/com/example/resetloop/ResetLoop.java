@@ -52,17 +52,22 @@ public class ResetLoop extends JavaPlugin {
                 p.kickPlayer("§cWorld is resetting...");
             }
 
-            // Unload and delete world
-            Bukkit.unloadWorld(oldWorld, false);
-            deleteFolder(oldWorld.getWorldFolder());
-        }
+            // Unload the world first
+Bukkit.unloadWorld(oldWorld, false);
 
-        // Create new world with the same seed
-        WorldCreator wc = new WorldCreator("world");
-        wc.seed(fixedSeed);
-        wc.environment(Environment.NORMAL);
-        wc.type(WorldType.NORMAL);
-        Bukkit.createWorld(wc);
+// Run deletion & recreation on the next tick (to avoid session.lock errors)
+Bukkit.getScheduler().runTaskLater(this, () -> {
+    deleteFolder(oldWorld.getWorldFolder());
+
+    WorldCreator wc = new WorldCreator("world");
+    wc.seed(fixedSeed);
+    wc.environment(Environment.NORMAL);
+    wc.type(WorldType.NORMAL);
+    World newWorld = Bukkit.createWorld(wc);
+
+    Bukkit.broadcastMessage("§aWorld has been reset!");
+}, 20L); // wait 1 second
+
 
         // Reset advancements
     for (Player p : Bukkit.getOnlinePlayers()) {
