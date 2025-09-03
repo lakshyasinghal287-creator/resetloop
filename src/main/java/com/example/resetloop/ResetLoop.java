@@ -43,42 +43,41 @@ public class ResetLoop extends JavaPlugin {
     }
 
     private void resetWorld() {
-        Bukkit.broadcastMessage("§4§lResetting world...");
+    Bukkit.broadcastMessage("§4§lResetting world...");
 
-        World oldWorld = Bukkit.getWorld("world");
-        if (oldWorld != null) {
-            // Kick players to avoid corruption
-            for (Player p : oldWorld.getPlayers()) {
-                p.kickPlayer("§cWorld is resetting...");
+    World oldWorld = Bukkit.getWorld("world");
+    if (oldWorld != null) {
+        // Kick all players before reset
+        for (Player p : oldWorld.getPlayers()) {
+            p.kickPlayer("§cWorld is resetting...");
+        }
+
+        // Unload the world
+        Bukkit.unloadWorld(oldWorld, false);
+
+        // Run deletion & recreation on the next tick
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            deleteFolder(oldWorld.getWorldFolder());
+
+            WorldCreator wc = new WorldCreator("world");
+            wc.seed(fixedSeed);
+            wc.environment(Environment.NORMAL);
+            wc.type(WorldType.NORMAL);
+            Bukkit.createWorld(wc);
+
+            // Reset advancements
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                Bukkit.advancementIterator().forEachRemaining(adv ->
+                        p.getAdvancementProgress(adv).getAwardedCriteria()
+                                .forEach(c -> p.getAdvancementProgress(adv).revokeCriteria(c))
+                );
             }
 
-            // Unload the world first
-Bukkit.unloadWorld(oldWorld, false);
-
-// Run deletion & recreation on the next tick (to avoid session.lock errors)
-Bukkit.getScheduler().runTaskLater(this, () -> {
-    deleteFolder(oldWorld.getWorldFolder());
-
-    WorldCreator wc = new WorldCreator("world");
-    wc.seed(fixedSeed);
-    wc.environment(Environment.NORMAL);
-    wc.type(WorldType.NORMAL);
-    World newWorld = Bukkit.createWorld(wc);
-
-    Bukkit.broadcastMessage("§aWorld has been reset!");
-}, 20L); // wait 1 second
-
-
-        // Reset advancements
-    for (Player p : Bukkit.getOnlinePlayers()) {
-    Bukkit.advancementIterator().forEachRemaining(adv ->
-            p.getAdvancementProgress(adv).getAwardedCriteria()
-                    .forEach(c -> p.getAdvancementProgress(adv).revokeCriteria(c))
-    );
+            Bukkit.broadcastMessage("§aWorld has been reset!");
+        }, 20L); // wait 1 second
+    }
 }
 
-        Bukkit.broadcastMessage("§aWorld has been reset!");
-    }
 
     private void deleteFolder(File folder) {
         if (folder.exists()) {
