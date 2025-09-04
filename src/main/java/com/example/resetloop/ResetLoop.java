@@ -42,54 +42,99 @@ public class ResetLoop extends JavaPlugin {
         }.runTaskTimer(this, 20, 20); // runs every second
     }
 
-  private void resetWorld() {
+ private void resetWorld() {
     Bukkit.broadcastMessage("§4§lResetting world...");
 
-    World oldWorld = Bukkit.getWorld("world");
-    if (oldWorld != null) {
-        // Kick all players before reset
-        for (Player p : oldWorld.getPlayers()) {
+    // Detect actual base world (index 0)
+    World baseWorld = Bukkit.getWorlds().get(0);
+    String baseName = baseWorld.getName(); // should be "world"
+
+    // Kick all players out safely
+    for (World w : Bukkit.getWorlds()) {
+        for (Player p : w.getPlayers()) {
             p.kickPlayer("§cWorld is resetting...");
         }
-
-        // Unload the world
-        Bukkit.unloadWorld(oldWorld, false);
-
-        // Run deletion & recreation on the next tick
-        Bukkit.getScheduler().runTaskLater(this, () -> {
-            File worldFolder = oldWorld.getWorldFolder();
-
-            // Fully delete the folder (with subdirectories)
-            deleteFolder(worldFolder);
-
-            // Now create new world with the same seed
-            WorldCreator wc = new WorldCreator("world");
-            wc.seed(fixedSeed);
-            wc.environment(Environment.NORMAL);
-            wc.type(WorldType.NORMAL);
-            Bukkit.createWorld(wc);
-
-            Bukkit.broadcastMessage("§aWorld has been reset!");
-        }, 40L); // wait 2 seconds just to be safe
     }
-}
 
+    // Unload worlds in safe order
+    World end = Bukkit.getWorld(baseName + "_the_end");
+    World nether = Bukkit.getWorld(baseName + "_nether");
+    if (end != null) Bukkit.unloadWorld(end, false);
+    if (nether != null) Bukkit.unloadWorld(nether, false);
+    Bukkit.unloadWorld(baseWorld, false);
 
-private void deleteFolder(File folder) {
-    if (folder.exists()) {
-        File[] files = folder.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    deleteFolder(file);
-                } else {
-                    file.delete();
-                }
-            }
+    // Resolve absolute folders from the server's world container
+    File container = Bukkit.getWorldContainer(); // usually the server root
+    File overworldDir = new File(container, baseName);
+    File netherDir = new File(container, baseName + "_nether");
+    File endDir    = new File(container, baseName + "_the_end");
+
+    // Delete & recreate after a short delay to release file locks
+    Bukkit.getScheduler().runTaskLater(this, () -> {
+        boolean owOk = deleteFolderNio(overworldDir.toPath());
+        boolean neOk = deleteFolderNio(netherDir.toPath());
+        boolean enOk = deleteFolderNio(endDir.toPath());
+
+        getLogger().info("[ResetLoop] Deleted: OW=" + owOk + " NE=" + neOk + " EN=" + enOk);
+
+        // If deletion failed, fallback to a safe full restart (optional – comment out if you don't want it)
+        if (!owOk) {
+            getLogger().severe("[ResetLoop] Overworld delete failed; falling back to server restart for a clean reset.");
+            // Optionally write a marker file so your start script can see it
+            // try { Files.writeString(new File(container, "RESET_MARKER.txt").toPath(), "reset"); } catch (Exception ignored) {}
+            Bukkit.shutdown();
+            return;
         }
-        folder.delete();
+
+        // Recreate worlds with fixed seed
+        Bukkit.createWorld(new WorldCreator(baseName)
+                .environment(World.Environment.NORMAL)
+                .type(WorldType.NORMAL)
+                .seed(fixedSeed));
+
+        Bukkit.createWorld(new WorldCreator(baseName + "_nether")
+                .environment(World.Environment.NETHER)
+                .seed(fixedSeed));
+
+        Bukkit.createWorld(new WorldCreator(baseName + "_the_end")
+                .environment(World.Environment.THE_END)
+                .seed(fixedSeed));
+
+        // (Advancements clear if anyone online after reconnect)
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            Bukkit.advancementIterator().forEachRemaining(adv ->
+                    p.getAdvancementProgress(adv).getAwardedCriteria()
+                            .forEach(c -> p.getAdvancementProgress(adv).revokeCriteria(c)));
+        }
+
+        Bukkit.broadcastMessage("§aWorld has been reset!");
+        getLogger().info("[ResetLoop] World reset complete.");
+    }, 60L); // 3 seconds
+}
+
+
+
+// Robust recursive delete using NIO; returns true if the directory no longer exists
+private boolean deleteFolderNio(java.nio.file.Path root) {
+    try {
+        if (!java.nio.file.Files.exists(root)) return true;
+        // walk file tree and delete children before parents
+        java.nio.file.Files.walk(root)
+                .sorted(java.util.Comparator.reverseOrder())
+                .forEach(p -> {
+                    try {
+                        java.nio.file.Files.deleteIfExists(p);
+                    } catch (Exception e) {
+                        getLogger().warning("[ResetLoop] Failed to delete: " + p + " -> " + e.getMessage());
+                    }
+                });
+        return !java.nio.file.Files.exists(root);
+    } catch (Exception ex) {
+        getLogger().warning("[ResetLoop] NIO delete error for " + root + " -> " + ex.getMessage());
+        return false;
     }
 }
+
 
 
     @Override
