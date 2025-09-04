@@ -42,7 +42,7 @@ public class ResetLoop extends JavaPlugin {
         }.runTaskTimer(this, 20, 20); // runs every second
     }
 
-    private void resetWorld() {
+  private void resetWorld() {
     Bukkit.broadcastMessage("§4§lResetting world...");
 
     World oldWorld = Bukkit.getWorld("world");
@@ -57,40 +57,40 @@ public class ResetLoop extends JavaPlugin {
 
         // Run deletion & recreation on the next tick
         Bukkit.getScheduler().runTaskLater(this, () -> {
-            deleteFolder(oldWorld.getWorldFolder());
+            File worldFolder = oldWorld.getWorldFolder();
 
+            // Fully delete the folder (with subdirectories)
+            deleteFolder(worldFolder);
+
+            // Now create new world with the same seed
             WorldCreator wc = new WorldCreator("world");
             wc.seed(fixedSeed);
             wc.environment(Environment.NORMAL);
             wc.type(WorldType.NORMAL);
             Bukkit.createWorld(wc);
 
-            // Reset advancements
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                Bukkit.advancementIterator().forEachRemaining(adv ->
-                        p.getAdvancementProgress(adv).getAwardedCriteria()
-                                .forEach(c -> p.getAdvancementProgress(adv).revokeCriteria(c))
-                );
-            }
-
             Bukkit.broadcastMessage("§aWorld has been reset!");
-        }, 20L); // wait 1 second
+        }, 40L); // wait 2 seconds just to be safe
     }
 }
 
 
-    private void deleteFolder(File folder) {
-        if (folder.exists()) {
-            for (File file : folder.listFiles()) {
+private void deleteFolder(File folder) {
+    if (folder.exists()) {
+        File[] files = folder.listFiles();
+        if (files != null) {
+            for (File file : files) {
                 if (file.isDirectory()) {
                     deleteFolder(file);
                 } else {
                     file.delete();
                 }
             }
-            folder.delete();
         }
+        folder.delete();
     }
+}
+
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
