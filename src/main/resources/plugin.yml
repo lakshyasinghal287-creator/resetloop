@@ -6,4 +6,3 @@ commands:
   resetnow:
     description: Force reset the world
     usage: /resetnow
-
