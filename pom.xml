@@ -9,7 +9,6 @@
     <packaging>jar</packaging>
 
     <repositories>
-        <!-- PaperMC public repository -->
         <repository>
             <id>papermc-repo</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
@@ -39,4 +38,3 @@
         </plugins>
     </build>
 </project>
-
